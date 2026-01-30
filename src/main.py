@@ -1,4 +1,5 @@
 import os
+import ollama
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -6,7 +7,6 @@ from googleapiclient.discovery import build
 
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
-
 
 def authenticate_gmail():
     
@@ -81,12 +81,64 @@ def fetch_unread_emails(service, max_results = 5):
     return emails
 
 
-if __name__ == "__main__":
-    gmail_service = authenticate_gmail()
-    print("Connected to Gmail\n")
+def analyze_email_with_ollama(email_data, model='phi3:mini'):
 
-    emails = fetch_unread_emails(gmail_service, max_results= 5)
-
-    print(f"\n Done! Found {len(emails)} unread emails")
-
+    print(f"\n Sending email to Ollama (model: {model})...\n")
     
+    prompt = f"""You are a helpful email assistant for a property management company.
+
+Email Subject: {email_data['subject']}
+From: {email_data['from']}
+Content: {email_data['snippet']}
+
+Please provide:
+1. A brief summary of this email
+2. The main intent or request
+3. Suggested category (inquiry, maintenance request, complaint, general)
+"""
+    
+    try:
+        # Send to Ollama
+        response = ollama.chat(
+            model=model,
+            messages=[{
+                'role': 'user',
+                'content': prompt
+            }]
+        )
+        
+        result = response['message']['content']
+        print("Ollama Response:")
+        print("-" * 80)
+        print(result)
+        print("-" * 80)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error connecting to Ollama: {e}")
+        print("Make sure Ollama is running (try 'ollama serve' in another terminal)")
+        return None
+
+
+if __name__ == "__main__":
+    print("Starting LENAH Assistant...\n")
+    
+
+    gmail_service = authenticate_gmail()
+    print("Connected to Gmail!\n")
+    
+    
+    emails = fetch_unread_emails(gmail_service, max_results=5)
+    
+    if emails:
+        print(f"\n Found {len(emails)} unread email(s)")
+        
+        
+        print("\n" + "="*80)
+        print("TESTING OLLAMA WITH FIRST EMAIL")
+        print("="*80)
+        
+        analyze_email_with_ollama(emails[0])
+    else:
+        print("\n No unread emails to analyze")
