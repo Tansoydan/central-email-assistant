@@ -1,5 +1,5 @@
 import ollama
-from config import OLLAMA_CLASSIFY_OPTIONS, OLLAMA_DRAFT_OPTIONS
+from src.config import OLLAMA_CLASSIFY_OPTIONS, OLLAMA_DRAFT_OPTIONS
 
 
 def classify_email_with_ollama(email_data: dict, model: str) -> dict:
