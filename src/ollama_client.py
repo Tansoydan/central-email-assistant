@@ -1,4 +1,5 @@
 import ollama
+from config import OLLAMA_CLASSIFY_OPTIONS, OLLAMA_DRAFT_OPTIONS
 
 
 def classify_email_with_ollama(email_data: dict, model: str) -> dict:
@@ -19,7 +20,12 @@ Rules:
 - If you are not sure, choose Should_Reply: no
 """.strip()
 
-    resp = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}])
+    resp = ollama.chat(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        options=OLLAMA_CLASSIFY_OPTIONS,
+        keep_alive="5m",
+    )
     raw = (resp["message"]["content"] or "").strip()
 
     out = {
@@ -42,15 +48,13 @@ Rules:
         elif low.startswith("intent:"):
             out["intent"] = line.split(":", 1)[1].strip()
 
-    # Safety net: never reply to obvious automated/marketing content, even if model says yes
     auto_signals = (
         "unsubscribe",
         "manage preferences",
         "newsletter",
         "promotion",
-        "promo", 
+        "promo",
         "sale ends",
-
     )
     blob = f"{email_data.get('subject','')} {email_data.get('from','')} {(email_data.get('text','') or '')[:4000]}".lower()
     if any(s in blob for s in auto_signals):
@@ -60,24 +64,20 @@ Rules:
         if not out["intent"] or out["intent"].lower() in ("unknown", ""):
             out["intent"] = "No action needed"
 
-    # Normalise ignore category
     if out["category"] == "ignore":
         out["should_reply"] = "no"
         out["priority"] = "none"
         if not out["intent"] or out["intent"].lower() == "unknown":
             out["intent"] = "No action needed"
 
-    # Normalise should_reply
     if out["should_reply"] not in ("yes", "no"):
         out["should_reply"] = "no"
 
-    # Clamp intent length (prevents rambles)
     out["intent"] = (out["intent"] or "").strip()
     if len(out["intent"]) > 140:
         out["intent"] = out["intent"][:137].rstrip() + "..."
 
     return out
-
 
 
 def generate_draft_reply_with_ollama(email_data: dict, classification: dict, model: str) -> str:
@@ -101,5 +101,10 @@ Write a professional, friendly reply email.
 - Sign off as "LENAH Assistant"
 """.strip()
 
-    resp = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}])
+    resp = ollama.chat(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        options=OLLAMA_DRAFT_OPTIONS,
+        keep_alive="5m",
+    )
     return (resp["message"]["content"] or "").strip()
